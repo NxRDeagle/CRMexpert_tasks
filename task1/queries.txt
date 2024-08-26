@@ -1,0 +1,37 @@
+-- 1. Объем продаж в количественном выражении в разрезе сотрудников за период с 01.10.2013 по 07.10.2013
+-- Данные отсортировать по фамилии и имени сотрудника.
+SELECT sel.Surname AS "Фамилия", sel.Name AS "Имя", sum(sal.Quantity) AS "Объем продаж"
+FROM Sellers AS sel
+LEFT JOIN Sales AS sal ON sal.IDSel = sel.ID
+WHERE sal.date >= timestamp '2013-10-01 00:00:00'
+	AND sal.date < timestamp '2013-10-08 00:00:00'
+GROUP BY sel.ID
+ORDER BY sel.Surname, sel.Name; 
+
+
+-- 2. Процент объема продаж в разрезе сотрудников и продукции за период с 01.10.2013 по 07.10.2013
+-- В выборку должна попадать продукция, поступившая за период с 07.09.2013 по 07.10.2013.
+-- Данные отсортировать по наименованию продукции, фамилии и имени сотрудника.
+SELECT p.Name AS "Наименование", s.Surname  AS "Фамилия", s.Name AS "Имя", ROUND(CAST(percentage AS NUMERIC), 2) AS "Процент продаж"
+FROM
+(
+	SELECT sel_summ.IDProd, sel_summ.IDSel, total / (sum(total) OVER (PARTITION BY sel_summ.IDProd)) * 100 AS percentage
+	FROM 
+	(
+		SELECT sel_by_period.IDProd, sel_by_period.IDSel, SUM(sel_by_period.Quantity) AS total
+		FROM
+		(
+			SELECT sal.IDSel, sal.IDProd, sal.Quantity
+			FROM Products AS pr
+			JOIN Sales AS sal ON sal.IDProd = pr.ID
+			JOIN Arrivals AS ar ON ar.IDProd = pr.ID
+			WHERE sal.date >= timestamp '2013-10-01 00:00:00'
+				AND sal.date < timestamp '2013-10-08 00:00:00'
+				AND ar.date >= timestamp '2013-09-07 00:00:00'
+				AND ar.date < timestamp '2013-10-08 00:00:00'
+			) sel_by_period
+		GROUP BY sel_by_period.IDProd, sel_by_period.IDSel
+	) sel_summ
+)
+JOIN products p ON p.ID = IDProd
+JOIN sellers s ON s.ID = IDSel;
